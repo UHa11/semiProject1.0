@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kh.project.cse.boot.mappers.MemberMapper">
+    <resultMap id="memberResult" type="Member">
+        <result column="MEMBER_NO" property="memberNo"/>
+        <result column="STORE_NO" property="storeNo"/>
+        <result column="POSITION" property="position"/>
+        <result column="MEMBER_NAME" property="memberName"/>
+        <result column="PHONE_NUMBER" property="phone"/>
+        <result column="RESIDENT_NUMBER" property="residentNo"/>
+        <result column="MEMBER_ID" property="memberId"/>
+        <result column="MEMBER_PWD" property="memberPwd"/>
+        <result column="MEMBER_STATUS" property="status"/>
+        <result column="COUNT" property="count"/>
+        <result column="STORE_NAME" property="storeName"/>
+
+
+    </resultMap>
+    <insert id="insertMember">
+        INSERT INTO MEMBER(
+        MEMBER_NO,
+        STORE_NO,
+        POSITION,
+        MEMBER_NAME,
+        PHONE_NUMBER,
+        RESIDENT_NUMBER,
+        MEMBER_ID,
+        MEMBER_PWD,
+        MEMBER_STATUS
+        ) VALUES (
+        SEQ_MNO.NEXTVAL,
+        SEQ_STNO.CURRVAL,
+        #{position},
+        #{memberName},
+        #{phone},
+        #{residentNo},
+        #{memberId},
+        #{memberPwd},
+        'Y'
+        )
+    </insert>
+    <insert id="insertMembers">
+        INSERT INTO MEMBER(
+        MEMBER_NO,
+        STORE_NO,
+        POSITION,
+        MEMBER_NAME,
+        PHONE_NUMBER,
+        RESIDENT_NUMBER,
+        MEMBER_ID,
+        MEMBER_PWD,
+        MEMBER_STATUS
+        ) VALUES (
+        SEQ_MNO.NEXTVAL,
+        #{storeNo},
+        #{position},
+        #{memberName},
+        #{phone},
+        #{residentNo},
+        #{memberId},
+        #{memberPwd},
+        'Y'
+        )
+    </insert>
+    <select id="idCheck" resultType="_int">
+        SELECT COUNT(*)
+        FROM MEMBER
+        WHERE MEMBER_ID = #{checkId}
+    </select>
+    <select id="loginMember" parameterType="Member" resultMap="memberResult">
+        SELECT
+        MEMBER_NO,
+        STORE_NO,
+        STORE_NAME,
+        POSITION,
+        MEMBER_NAME,
+        PHONE_NUMBER,
+        RESIDENT_NUMBER,
+        MEMBER_ID,
+        MEMBER_PWD,
+        MEMBER_STATUS
+        FROM MEMBER
+        JOIN STORE USING (STORE_NO)
+        WHERE MEMBER_ID = #{memberId}
+        AND MEMBER_STATUS = 'Y'
+    </select>
+    <!--개인정보 수정 및 직원정보 수정-->
+    <update id="updateMember" parameterType="member">
+        UPDATE MEMBER
+        <set>
+            <if test="memberName != null and memberName != ''">
+                MEMBER_NAME = #{memberName},
+            </if>
+            <if test="phone != null and phone != ''">
+                PHONE_NUMBER = #{phone},
+            </if>
+            <if test="memberPwd != null and memberPwd != ''">
+                MEMBER_PWD = #{memberPwd},
+            </if>
+            <if test="position != null and position != ''">
+                POSITION = #{position},
+            </if>
+            <if test="status != null and status != ''">
+                MEMBER_STATUS = #{status},
+            </if>
+        </set>
+        WHERE MEMBER_ID = #{memberId}
+    </update>
+
+    <select id="selectMemberById" parameterType="string" resultMap="memberResult">
+        SELECT
+            MEMBER_NAME,
+            PHONE_NUMBER,
+            MEMBER_PWD
+        FROM MEMBER
+        WHERE MEMBER_ID = #{memberId}
+            AND MEMBER_STATUS = 'Y'
+    </select>
+
+    <update id="updateMemberStatus" parameterType="member">
+        UPDATE MEMBER
+        SET
+        POSITION = #{position},
+        MEMBER_STATUS = #{status}
+        WHERE
+        MEMBER_NO = #{memberNo}
+    </update>
+
+<!--head_member-->
+<select id="memberListCount" resultType="_int">
+    SELECT COUNT(*) AS COUNT
+    FROM MEMBER
+    WHERE STORE_NO > 0
+</select>
+<select id="selectHeadMemberList" resultMap="memberResult">
+    SELECT
+        MEMBER_NO,
+        MEMBER_ID,
+        MEMBER_NAME,
+        PHONE_NUMBER,
+        POSITION,
+        MEMBER_STATUS,
+        RESIDENT_NUMBER,
+        STORE_NO,
+        STORE_NAME
+    FROM MEMBER
+    JOIN STORE USING(STORE_NO)
+    WHERE STORE_NO > 0
+    ORDER BY  MEMBER_STATUS DESC, STORE_NO DESC
+</select>
+    <select id="searchMember" resultMap="memberResult">
+        SELECT
+        MEMBER_ID,
+        MEMBER_NAME,
+        PHONE_NUMBER,
+        POSITION,
+        MEMBER_STATUS,
+        RESIDENT_NUMBER,
+        STORE_NO,
+        STORE_NAME
+        FROM MEMBER
+        JOIN STORE USING(STORE_NO)
+        WHERE
+        STORE_NO > 0 AND
+        <choose>
+            <when test="condition == 'storeName'">
+                STORE_NAME
+            </when>
+            <when test="condition == 'memberName'">
+                MEMBER_NAME
+            </when>
+            <otherwise>
+                POSITION
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        ORDER BY STORE_NO DESC
+    </select>
+
+    <select id="searchMemberListCount" resultType="_int">
+        SELECT
+        COUNT(*) AS COUNT
+        FROM MEMBER
+        JOIN STORE USING(STORE_NO)
+        WHERE
+        STORE_NO > 0 AND
+        <choose>
+            <when test="condition == 'storeName'">
+                STORE_NAME
+            </when>
+            <when test="condition == 'memberName'">
+                MEMBER_NAME
+            </when>
+            <otherwise>
+                POSITION
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        ORDER BY STORE_NO DESC
+    </select>
+
+<delete id="deleteMember">
+    DELETE MEMBER
+    WHERE MEMBER_NO = #{memberNO}
+</delete>
+
+
+<!--페이징 처리-->
+    <!-- 직원 수 조회 -->
+    <!-- 직원 리스트 조회(검색) -->
+    <select id="selectMemberByKeyword" resultMap="memberResult" parameterType="map">
+        SELECT * FROM (
+        SELECT ROWNUM RNUM, A.* FROM (
+        SELECT * FROM MEMBER
+        WHERE (MEMBER_ID LIKE '%' || #{keyword} || '%'
+        OR MEMBER_NAME LIKE '%' || #{keyword} || '%')
+        AND MEMBER_STATUS = 'Y'
+        ORDER BY MEMBER_ID
+        ) A
+        )
+        WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+    </select>
+    <!-- 직원 수 조회(검색) -->
+    <select id="getSearchCountKeyWord" resultType="int">
+        SELECT COUNT(*)
+        FROM MEMBER
+        WHERE (MEMBER_ID LIKE '%' || #{keyword} || '%'
+        OR MEMBER_NAME LIKE '%' || #{keyword} || '%')
+        AND MEMBER_STATUS = 'Y'
+    </select>
+
+    <!-- 직원 리스트 조회 -->
+    <select id="getSpotMemberList" resultMap="memberResult" parameterType="map">
+        SELECT * FROM (
+        SELECT ROWNUM RNUM, A.* FROM (
+        SELECT * FROM MEMBER
+        WHERE MEMBER_STATUS = 'Y'
+        ORDER BY MEMBER_ID
+        ) A
+        )
+        WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+    </select>
+    <!-- 직원 수 조회 -->
+    <select id="getSpotMemberCount" resultType="int">
+        SELECT COUNT(*)
+        FROM MEMBER
+        WHERE MEMBER_STATUS = 'Y'
+    </select>
+<!--페이징 처리 끝-->
+
+</mapper>

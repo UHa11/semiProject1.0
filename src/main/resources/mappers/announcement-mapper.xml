@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kh.project.cse.boot.mappers.AnnouncementMapper">
+
+    <!--anoucementResult-->
+    <resultMap id="anoucementResult" type="Announcement">
+        <result column="ANNOUNCEMENT_NO" property="announcementNo"/>
+        <result column="ANNOUNCEMENT_TITLE" property="announcementTitle"/>
+        <result column="ANNOUNCEMENT_DETAIL" property="announcementDetail"/>
+        <result column="MEMBER_NO" property="memberNo"/>
+        <result column="ANNOUNCEMENT_DATE" property="announcementDate"/>
+        <result column="ANNOUNCEMENT_STATUS" property="announcementStatus"/>
+        <result column="STORE_NAME" property="storeName"/>
+    </resultMap>
+    <select id="selectAnnouncementCount" resultType="_int">
+        SELECT COUNT(*)
+        FROM ANNOUNCEMENT
+        WHERE ANNOUNCEMENT_STATUS = 1
+    </select>
+    <select id="selectAnnouncementlist" resultMap="anoucementResult">
+        SELECT ANNOUNCEMENT_NO,
+        ANNOUNCEMENT_TITLE,
+        ANNOUNCEMENT_DETAIL,
+        STORE_NAME,
+        TO_CHAR(ANNOUNCEMENT_DATE, 'YYYY-MM-DD') AS ANNOUNCEMENT_DATE,
+        ANNOUNCEMENT_STATUS
+        FROM ANNOUNCEMENT A
+        LEFT JOIN MEMBER M ON (A.MEMBER_NO = M.MEMBER_NO)
+        LEFT JOIN STORE S ON (M.STORE_NO = S.STORE_NO)
+        WHERE ANNOUNCEMENT_STATUS = 1
+        ORDER BY ANNOUNCEMENT_NO DESC
+    </select>
+    <insert id="insertAnnouncement">
+        INSERT INTO ANNOUNCEMENT(
+        ANNOUNCEMENT_NO,
+        ANNOUNCEMENT_TITLE,
+        ANNOUNCEMENT_DETAIL,
+        MEMBER_NO,
+        ANNOUNCEMENT_STATUS
+        ) VALUES (
+        SEQ_ATNO.NEXTVAL,
+        #{announcementTitle},
+        #{announcementDetail},
+        #{memberNo},
+        1
+        )
+    </insert>
+
+    <select id="selectDetailAnnouncement" resultMap="anoucementResult">
+        SELECT TO_CHAR(ANNOUNCEMENT_DATE, 'YYYY-MM-DD') AS ANNOUNCEMENT_DATE,
+        ANNOUNCEMENT_TITLE,
+        ANNOUNCEMENT_DETAIL
+        FROM ANNOUNCEMENT A
+        WHERE ANNOUNCEMENT_STATUS = 1
+        AND ANNOUNCEMENT_NO = #{ano}
+    </select>
+    <update id="updateAnnouncementDetail">
+        UPDATE ANNOUNCEMENT
+        SET ANNOUNCEMENT_TITLE = #{announcementTitle},
+        ANNOUNCEMENT_DETAIL = #{announcementDetail}
+        WHERE ANNOUNCEMENT_NO = #{announcementNo}
+    </update>
+
+    <select id="searchAnnouncement" resultMap="anoucementResult">
+        SELECT ANNOUNCEMENT_NO,
+        ANNOUNCEMENT_TITLE,
+        ANNOUNCEMENT_DETAIL,
+        STORE_NAME,
+        TO_CHAR(ANNOUNCEMENT_DATE, 'YYYY-MM-DD') AS ANNOUNCEMENT_DATE,
+        ANNOUNCEMENT_STATUS
+        FROM ANNOUNCEMENT A
+        LEFT JOIN MEMBER M ON (A.MEMBER_NO = M.MEMBER_NO)
+        LEFT JOIN STORE S ON (M.STORE_NO = S.STORE_NO)
+        WHERE
+        <choose>
+            <when test="condition == 'announcementTitle'">
+                ANNOUNCEMENT_TITLE
+            </when>
+            <otherwise>
+                STORE_NAME
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        ORDER BY ANNOUNCEMENT_NO DESC
+    </select>
+
+    <select id="searchAnnouncementCount" resultType="_int">
+        SELECT COUNT(*)
+        FROM(SELECT
+        ANNOUNCEMENT_NO,
+        ANNOUNCEMENT_TITLE,
+        ANNOUNCEMENT_DETAIL,
+        STORE_NAME,
+        TO_CHAR(ANNOUNCEMENT_DATE, 'YYYY-MM-DD') AS ANNOUNCEMENT_DATE,
+        ANNOUNCEMENT_STATUS
+        FROM ANNOUNCEMENT A
+        LEFT JOIN MEMBER M ON (A.MEMBER_NO = M.MEMBER_NO)
+        LEFT JOIN STORE S ON (M.STORE_NO = S.STORE_NO)
+        WHERE
+        <choose>
+            <when test="condition == 'announcementTitle'">
+                ANNOUNCEMENT_TITLE
+            </when>
+            <otherwise>
+                STORE_NAME
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        ORDER BY ANNOUNCEMENT_NO DESC
+        )
+    </select>
+
+    <delete id="deleteAnnouncement">
+        DELETE FROM ANNOUNCEMENT
+        WHERE ANNOUNCEMENT_NO = #{ano}
+    </delete>
+
+<!--    대쉬보드 -->
+    <select id="selectdashAnnouncementlist" resultMap="anoucementResult">
+        SELECT ROWNUM,ANNOUNCEMENT_TITLE
+        FROM(SELECT ROWNUM,ANNOUNCEMENT_TITLE
+        FROM ANNOUNCEMENT
+        ORDER BY ANNOUNCEMENT_NO DESC)
+        WHERE ROWNUM &lt;= 3
+    </select>
+
+</mapper>

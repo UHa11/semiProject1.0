@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kh.project.cse.boot.mappers.StoreMapper">
+
+    <resultMap id="storeResult" type="Store">
+        <result column="STORE_NO" property="storeNo"/>
+        <result column="STORE_NAME" property="storeName"/>
+        <result column="STORE_DATE" property="storeDate"/>
+        <result column="STORE_STATUS" property="storeStatus"/>
+
+        <result column="MEMBER_NAME" property="memberName"/>
+        <result column="MEMBER_NO" property="memberNo"/>
+        <result column="COUNT" property="count"/>
+    </resultMap>
+
+    <insert id="insertStore">
+        INSERT INTO STORE(
+        STORE_NO,
+        STORE_NAME
+        ) VALUES (
+        SEQ_STNO.NEXTVAL,
+        #{storeName}
+        )
+    </insert>
+
+    <select id="checkStoreName" resultType="_int">
+        SELECT COUNT(*)
+        FROM STORE
+        WHERE STORE_NAME = #{checkStore}
+    </select>
+    <select id="checkStoreStatus" resultType="_int">
+        SELECT COUNT(*)
+        FROM STORE
+        WHERE STORE_NO = #{storeNo}
+        AND STORE_STATUS = 1
+    </select>
+    <select id="checkStore" resultMap="storeResult">
+        SELECT STORE_NO
+        FROM STORE
+        WHERE STORE_NAME = #{storeName}
+        AND STORE_STATUS = 1
+    </select>
+
+    <select id="storeListCount" resultType="_int">
+        SELECT
+        COUNT(*) AS COUNT
+        FROM STORE
+        WHERE STORE_NO > 0
+    </select>
+
+    <select id="selectStore" resultMap="storeResult">
+        SELECT
+        STORE_NO,
+        STORE_NAME,
+        STORE_DATE,
+        STORE_STATUS,
+        MEMBER_NAME
+        FROM STORE
+        JOIN MEMBER USING (store_No)
+        WHERE
+        STORE_STATUS = 1 AND STORE_NO > 0
+        ORDER BY STORE_STATUS DESC
+    </select>
+    <select id="searchStoreListCount" resultType="_int">
+        SELECT
+        COUNT(*) AS COUNT
+        FROM STORE
+        JOIN MEMBER USING(STORE_NO)
+        WHERE STORE_NO > 0 AND
+        <choose>
+            <when test="condition == 'storeNo'">
+                STORE_NO
+            </when>
+            <when test="condition == 'storeName'">
+                STORE_NAME
+            </when>
+            <otherwise>
+                MEMBER_NAME
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+    </select>
+    <select id="searchStore" resultMap="storeResult">
+        SELECT
+        STORE_NO,
+        STORE_NAME,
+        STORE_DATE,
+        STORE_STATUS,
+        MEMBER_NAME
+        FROM STORE
+        JOIN MEMBER USING(STORE_NO)
+        WHERE STORE_NO > 0 AND
+        <choose>
+            <when test="condition == 'storeNo'">
+                STORE_NO
+            </when>
+            <when test="condition == 'storeName'">
+                STORE_NAME
+            </when>
+            <otherwise>
+                MEMBER_NAME
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        ORDER BY STORE_NO DESC
+
+    </select>
+    <select id="selectStoreStatus" resultMap="storeResult">
+        SELECT
+        STORE_NO,
+        STORE_NAME,
+        TO_CHAR(STORE_DATE,'YYYY-MM-DD') AS STORE_DATE,
+        STORE_STATUS,
+        MEMBER_NAME,
+        MEMBER_NO
+        FROM STORE
+        JOIN MEMBER USING (store_No)
+        WHERE
+        STORE_STATUS = 2
+        ORDER BY STORE_DATE DESC
+    </select>
+
+    <update id="updateStoreNo">
+        UPDATE STORE
+        SET
+        STORE_STATUS = 1
+        WHERE STORE_NO = #{storeNo}
+    </update>
+
+    <delete id="deleteStore">
+        DELETE STORE
+        WHERE STORE_NO = #{storeNo}
+    </delete>
+
+    <select id="selectStoreName" resultMap="storeResult">
+        SELECT STORE_NO ,STORE_NAME
+        FROM STORE
+        JOIN MEMBER USING(STORE_NO)
+        WHERE STORE_STATUS = 1
+        AND POSITION != 1
+        GROUP BY STORE_NO, STORE_NAME
+    </select>
+</mapper>

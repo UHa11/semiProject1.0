@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kh.project.cse.boot.mappers.AttendanceMapper">
+    <resultMap id="attendanceMap" type="Attendance">
+        <id column="ATTENDANCE_NO" property="attendanceNo"/>
+        <result column="WORKING_TIME" property="workingTime"/>
+        <result column="WORKOUT_TIME" property="workoutTime"/>
+        <result column="STATUS" property="status"/>
+
+        <association property="member" javaType="Member">
+            <id column="M_MEMBER_NO" property="memberNo"/>
+            <result column="MEMBER_ID" property="memberId"/>
+            <result column="MEMBER_NAME" property="memberName"/>
+            <result column="PHONE_NUMBER" property="phone"/>
+            <result column="POSITION" property="position"/>
+            <result column="MEMBER_STATUS" property="status"/>
+        </association>
+    </resultMap>
+    <!--근태관리 - 출근 버튼 클릭시 상태확인-->
+    <select id="getAttendanceStatus" resultType="Integer">
+        SELECT *
+        FROM (
+            SELECT STATUS
+            FROM (
+            SELECT STATUS
+            FROM ATTENDANCE A
+            JOIN MEMBER M ON A.MEMBER_NO = M.MEMBER_NO
+            WHERE M.MEMBER_ID = #{memberId}
+            ORDER BY ATTENDANCE_NO DESC
+            )
+        )
+        WHERE ROWNUM = 1
+    </select>
+
+    <!--근태관리 - 출근 버튼 클릭시-->
+    <insert id="insertWorkingTime" parameterType="map">
+        INSERT INTO ATTENDANCE (ATTENDANCE_NO, MEMBER_NO, WORKING_TIME,STATUS)
+        VALUES (
+        SEQ_ATNO.NEXTVAL,
+        (SELECT MEMBER_NO FROM MEMBER WHERE MEMBER_ID = #{memberId}),
+        #{time},
+        #{status}
+        )
+    </insert>
+
+    <!--근태관리 - 퇴근 버튼 클릭시-->
+    <update id="updateWorkLeaveBtnTime" parameterType="map">
+        UPDATE ATTENDANCE
+        SET WORKOUT_TIME = #{time},STATUS = #{status}
+        WHERE MEMBER_NO = (SELECT MEMBER_NO FROM MEMBER WHERE MEMBER_ID = #{memberId})
+            AND STATUS = 1
+    </update>
+
+    <!--근태관리 - 출퇴근 시간 업데이트-->
+    <update id="updateWorkTime" parameterType="attendance">
+        UPDATE ATTENDANCE
+        <set>
+            <if test="workingTime != null">
+                WORKING_TIME = #{workingTime},
+            </if>
+            <if test="workoutTime != null">
+                WORKOUT_TIME = #{workoutTime},
+            </if>
+        </set>
+        WHERE MEMBER_NO = (SELECT MEMBER_NO FROM MEMBER WHERE MEMBER_ID = #{member.memberId})
+    </update>
+
+    <!--페이징 처리-->
+    <!-- 근퇴관리 데이터 지점별 제한-->
+    <select id="getSpotAttendanceCount" resultType="int" parameterType="int">
+        SELECT COUNT(*)
+        FROM ATTENDANCE A
+        JOIN MEMBER M ON A.MEMBER_NO = M.MEMBER_NO
+        WHERE M.STORE_NO = #{storeNo}
+    </select>
+
+    <!-- 근퇴관리 페이징 조회 -->
+    <select id="getSpotAttendanceList" resultMap="attendanceMap" parameterType="map">
+        SELECT * FROM (
+        SELECT ROWNUM RNUM, A.* FROM (
+        SELECT
+        A.ATTENDANCE_NO,
+        A.WORKING_TIME,
+        A.WORKOUT_TIME,
+        M.MEMBER_NO AS M_MEMBER_NO,
+        M.MEMBER_ID,
+        M.MEMBER_NAME,
+        M.PHONE_NUMBER,
+        M.POSITION,
+        M.MEMBER_STATUS
+        FROM ATTENDANCE A
+        JOIN MEMBER M ON A.MEMBER_NO = M.MEMBER_NO
+        WHERE M.STORE_NO = #{storeNo}
+        ORDER BY A.WORKING_TIME DESC
+        ) A
+        )
+        WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+    </select>
+    <!--페이징 처리-->
+</mapper>
+

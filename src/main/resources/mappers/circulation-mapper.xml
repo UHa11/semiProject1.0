@@ -1,0 +1,897 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kh.project.cse.boot.mappers.CirculationMapper">
+    <resultMap id="circulationResult" type="Circulation">
+        <result column="CIRCULATION_NO" property="circulationNo"/>
+        <result column="STORE_NO" property="storeNo"/>
+        <result column="PRODUCT_NO" property="productNo"/>
+        <result column="INPUT_PRICE" property="inputPrice"/>
+        <result column="SALE_PRICE" property="salePrice"/>
+        <result column="CIRCULATION_AMOUNT" property="circulationAmount"/>
+        <result column="CIRCULATION_DATE" property="circulationDate"/>
+        <result column="STATUS" property="status"/>
+        <result column="STORE_NAME" property="storeName"/>
+        <result column="PRODUCT_NAME" property="productName"/>
+        <result column="CATEGORY_NAME" property="categoryName"/>
+        <result column="SUM_INPUT_PRICE" property="sumInputPrice"/>
+        <result column="PRICE" property="price"/>
+
+        <!-- 발주목록 가져오기 -->
+        <result column="SET_NO" property="setNo"/>
+        <result column="ROWNUM" property="rowNum"/>
+        <result column="RNUM" property="rnum"/>
+        <result column="MINUTE_GROUP" property="minuteGroup"/>
+        <result column="TOTAL_AMOUNT" property="totalAmount"/>
+        <result column="TOTAL_INPUT_PRICE" property="totalInputPrice"/>
+    </resultMap>
+
+    <!-- 매출 전용 -->
+    <resultMap id="circulationSummaryResult" type="Circulation">
+        <result column="CIRCULATION_DATE" property="circulationDate"/>
+        <result column="INPUT_PRICE" property="inputPrice"/>
+        <result column="SALE_PRICE" property="salePrice"/>
+        <result column="CIRCULATION_AMOUNT" property="circulationAmount"/>
+    </resultMap>
+    <!--년도별 매출 전용-->
+    <resultMap id="monthlySalesResultMap" type="Circulation">
+        <result column="MONTH" property="month"/>
+        <result column="TOTAL_INPUT" property="totalInput"/>
+        <result column="TOTAL_SALE" property="totalSale"/>
+        <result column="TOTAL_MARGIN" property="totalMargin"/>
+    </resultMap>
+
+
+    <insert id="insertOrder">
+        INSERT INTO CIRCULATION (
+                CIRCULATION_NO,
+                STORE_NO,
+                SET_NO,
+                PRODUCT_NO,
+                INPUT_PRICE,
+                SALE_PRICE,
+                CIRCULATION_AMOUNT,
+                CIRCULATION_DATE,
+                STATUS
+        ) VALUES (
+                SEQ_CIRNO.NEXTVAL,
+                #{storeNo},
+                #{setNo},
+                #{circulation.productNo},
+                #{circulation.inputPrice},
+                #{circulation.salePrice},
+                #{circulation.circulationAmount},
+                SYSDATE,
+                1
+        )
+    </insert>
+
+    <select id="orderRequestListCount" resultType="_int">
+        SELECT
+            COUNT(*)
+        FROM (
+            SELECT
+                TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP
+            FROM CIRCULATION
+            WHERE STORE_NO = #{storeNo} AND STATUS IN (1,2,5,6,7)
+                AND NOT EXISTS (
+                    SELECT 1
+                FROM CIRCULATION c2
+                WHERE c2.SET_NO = CIRCULATION.SET_NO
+                    AND c2.STORE_NO = CIRCULATION.STORE_NO
+                    AND c2.STATUS = 2
+                    AND CIRCULATION.STATUS = 7
+                )
+            GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI')
+        )
+    </select>
+
+    <select id="orderRequestList" resultMap="circulationResult">
+        SELECT
+            TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+            SET_NO,
+            SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+            SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+            STATUS
+        FROM  CIRCULATION
+        WHERE  STORE_NO = #{storeNo} AND STATUS IN (1,2,5,6,7)
+            AND NOT EXISTS (
+                SELECT 1
+            FROM CIRCULATION c2
+            WHERE c2.SET_NO = CIRCULATION.SET_NO
+                AND c2.STORE_NO = CIRCULATION.STORE_NO
+                AND c2.STATUS = 2
+                AND CIRCULATION.STATUS = 7
+            )
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS
+        ORDER BY SET_NO DESC
+    </select>
+
+    <select id="orderSearchListCount" resultType="_int">
+        SELECT COUNT(*)
+        FROM (
+            SELECT
+                TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+                SET_NO,
+                SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+                SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+                STATUS
+            FROM CIRCULATION
+            WHERE STORE_NO = #{storeNo} AND STATUS IN (1,2,5,6,7)
+                <if test="startDate != null and endDate == null">
+                    AND CIRCULATION_DATE &gt;= #{startDate}
+                </if>
+                <if test="endDate != null and startDate == null">
+                    AND CIRCULATION_DATE &lt;= #{endDate}
+                </if>
+                <if test="startDate != null and endDate != null">
+                    AND CIRCULATION_DATE BETWEEN #{startDate} AND #{endDate}
+                </if>
+                <if test="status != null">
+                    AND STATUS = #{status}
+                </if>
+                <if test="setNo != null and setNo != ''">
+                    AND SET_NO LIKE '%' || #{setNo} || '%'
+                </if>
+                AND NOT EXISTS (
+                    SELECT 1
+                FROM CIRCULATION c2
+                WHERE c2.SET_NO = CIRCULATION.SET_NO
+                    AND c2.STORE_NO = CIRCULATION.STORE_NO
+                    AND c2.STATUS = 2
+                    AND CIRCULATION.STATUS = 7
+                )
+            GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS
+        )
+    </select>
+
+    <select id="orderSearchList" resultMap="circulationResult">
+        SELECT
+            TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+            SET_NO,
+            SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+            SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+            STATUS
+        FROM CIRCULATION
+        WHERE STORE_NO = #{storeNo} AND STATUS IN (1,2,5,6,7)
+            <if test="startDate != null and endDate == null">
+                AND CIRCULATION_DATE &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and startDate == null">
+                AND CIRCULATION_DATE &lt;= #{endDate}
+            </if>
+            <if test="startDate != null and endDate != null">
+                AND CIRCULATION_DATE BETWEEN #{startDate} AND #{endDate}
+            </if>
+            <if test="status != null">
+                AND STATUS = #{status}
+            </if>
+            <if test="setNo != null and setNo != ''">
+                AND SET_NO LIKE '%' || #{setNo} || '%'
+            </if>
+            AND NOT EXISTS (
+                SELECT 1
+            FROM CIRCULATION c2
+            WHERE c2.SET_NO = CIRCULATION.SET_NO
+                AND c2.STORE_NO = CIRCULATION.STORE_NO
+                AND c2.STATUS = 2
+                AND CIRCULATION.STATUS = 7
+            )
+
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS
+        ORDER BY SET_NO DESC
+    </select>
+
+    <select id="spotOrderDetail" resultMap="circulationResult">
+        SELECT
+            C.CIRCULATION_DATE,
+            C.SET_NO,
+            P.PRODUCT_NO AS PRODUCT_NO,
+            Y.CATEGORY_NAME AS CATEGORY_NAME,
+            P.PRODUCT_NAME AS PRODUCT_NAME,
+            C.CIRCULATION_AMOUNT AS CIRCULATION_AMOUNT,
+            (C.CIRCULATION_AMOUNT * C.INPUT_PRICE) AS SUM_INPUT_PRICE,
+            C.INPUT_PRICE,
+            C.SALE_PRICE,
+            C.STATUS
+        FROM CIRCULATION C
+            LEFT JOIN STORE S ON C.STORE_NO = S.STORE_NO
+            LEFT JOIN PRODUCT P ON C.PRODUCT_NO = P.PRODUCT_NO
+            LEFT JOIN CATEGORY Y ON P.CATEGORY_NO = Y.CATEGORY_NO
+        WHERE C.SET_NO = #{setNo}
+            AND (
+                    (C.STATUS = 2 AND EXISTS (
+                        SELECT 1 FROM CIRCULATION
+                    WHERE SET_NO = #{setNo} AND STATUS = 2
+                    ))
+                    OR (
+                        C.STATUS IN (1, 5, 6, 7)
+                        AND NOT EXISTS (
+                        SELECT 1 FROM CIRCULATION
+                        WHERE SET_NO = #{setNo} AND STATUS = 2
+                    )
+                )
+            )
+    </select>
+
+    <delete id="cancelOrder">
+    DELETE FROM CIRCULATION
+    WHERE SET_NO = #{setNo} AND STORE_NO = #{storeNo} AND STATUS = 1
+    </delete>
+
+<!--  ==========================================================================================================  -->
+    <select id="inputListCount" resultType="_int">
+        SELECT
+            COUNT(*)
+        FROM (
+            SELECT
+                TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP
+            FROM CIRCULATION
+            WHERE STORE_NO = #{storeNo}
+                AND STATUS IN (2,7)
+                AND NOT EXISTS (
+                SELECT 1
+                FROM CIRCULATION c2
+                WHERE c2.SET_NO = CIRCULATION.SET_NO
+                    AND c2.STORE_NO = CIRCULATION.STORE_NO
+                    AND c2.STATUS = 2
+                    AND CIRCULATION.STATUS = 7
+                )
+            GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI')
+        )
+    </select>
+
+    <select id="inputList" resultMap="circulationResult">
+        SELECT
+            TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+            SET_NO,
+            SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+            SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+            STATUS
+        FROM CIRCULATION
+        WHERE STORE_NO = #{storeNo}
+            AND STATUS IN (2, 7)
+            AND NOT EXISTS (
+                SELECT 1
+                FROM CIRCULATION c2
+                WHERE c2.SET_NO = CIRCULATION.SET_NO
+                    AND c2.STORE_NO = CIRCULATION.STORE_NO
+                    AND c2.STATUS = 2
+                    AND CIRCULATION.STATUS = 7
+            )
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS
+        ORDER BY
+            CASE STATUS
+                WHEN 7 THEN 1
+                WHEN 2 THEN 2
+            END,
+            SET_NO DESC
+    </select>
+
+    <select id="inputSearchListCount" resultType="_int">
+        SELECT COUNT(*)
+        FROM (
+            SELECT
+                TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+                SET_NO,
+                SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+                SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+                STATUS
+            FROM CIRCULATION
+            WHERE STORE_NO = #{storeNo}
+                AND STATUS IN (2,7)
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM CIRCULATION c2
+                    WHERE c2.SET_NO = CIRCULATION.SET_NO
+                        AND c2.STORE_NO = CIRCULATION.STORE_NO
+                        AND c2.STATUS = 2
+                        AND CIRCULATION.STATUS = 7
+                )
+            <if test="startDate != null and endDate == null">
+                AND CIRCULATION_DATE &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and startDate == null">
+                AND CIRCULATION_DATE &lt;= #{endDate}
+            </if>
+            <if test="startDate != null and endDate != null">
+                AND CIRCULATION_DATE BETWEEN #{startDate} AND #{endDate}
+            </if>
+            <if test="status != null">
+                AND STATUS = #{status}
+            </if>
+            <if test="setNo != null and setNo != ''">
+                AND SET_NO LIKE '%' || #{setNo} || '%'
+            </if>
+            GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS
+        )
+    </select>
+
+    <select id="inputSearchList" resultMap="circulationResult">
+        SELECT
+            TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+            SET_NO,
+            SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+            SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+            STATUS
+        FROM CIRCULATION
+        WHERE STORE_NO = #{storeNo}
+            AND STATUS IN (2, 7)
+            AND NOT EXISTS (
+                SELECT 1
+                FROM CIRCULATION c2
+                WHERE c2.SET_NO = CIRCULATION.SET_NO
+                    AND c2.STORE_NO = CIRCULATION.STORE_NO
+                    AND c2.STATUS = 2
+                    AND CIRCULATION.STATUS = 7
+            )
+        <if test="startDate != null and endDate == null">
+            AND CIRCULATION_DATE &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and startDate == null">
+            AND CIRCULATION_DATE &lt;= #{endDate}
+        </if>
+        <if test="startDate != null and endDate != null">
+            AND CIRCULATION_DATE BETWEEN #{startDate} AND #{endDate}
+        </if>
+        <if test="status != null">
+            AND STATUS = #{status}
+        </if>
+        <if test="setNo != null and setNo != ''">
+            AND SET_NO LIKE '%' || #{setNo} || '%'
+        </if>
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS
+        ORDER BY
+            CASE STATUS
+                WHEN 7 THEN 1
+                WHEN 2 THEN 2
+            END,
+            SET_NO DESC
+    </select>
+
+    <select id="inputDetail" resultMap="circulationResult">
+        SELECT
+            C.CIRCULATION_DATE,
+            C.SET_NO,
+            P.PRODUCT_NO AS PRODUCT_NO,
+            Y.CATEGORY_NAME AS CATEGORY_NAME,
+            P.PRODUCT_NAME AS PRODUCT_NAME,
+            C.CIRCULATION_AMOUNT AS CIRCULATION_AMOUNT,
+            (C.CIRCULATION_AMOUNT * C.INPUT_PRICE) AS SUM_INPUT_PRICE,
+            C.INPUT_PRICE,
+            C.SALE_PRICE,
+            C.STATUS
+        FROM CIRCULATION C
+            LEFT JOIN STORE S ON C.STORE_NO = S.STORE_NO
+            LEFT JOIN PRODUCT P ON C.PRODUCT_NO = P.PRODUCT_NO
+            LEFT JOIN CATEGORY Y ON P.CATEGORY_NO = Y.CATEGORY_NO
+        WHERE C.SET_NO = #{setNo} AND STATUS = 2
+    </select>
+
+    <insert id="insertInput">
+    INSERT INTO CIRCULATION (
+        CIRCULATION_NO,
+        STORE_NO,
+        SET_NO,
+        PRODUCT_NO,
+        INPUT_PRICE,
+        SALE_PRICE,
+        CIRCULATION_AMOUNT,
+        CIRCULATION_DATE,
+        STATUS
+    ) VALUES (
+        SEQ_CIRNO.NEXTVAL,
+        #{storeNo},
+        #{circulation.setNo},
+        #{circulation.productNo},
+        #{circulation.inputPrice},
+        #{circulation.salePrice},
+        #{circulation.circulationAmount},
+        SYSDATE,
+        2
+    )
+    </insert>
+
+
+
+    <!--  ==========================================================================================================  -->
+
+    <select id="selectCirculationlist" resultMap="circulationResult">
+        SELECT
+        TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+        SET_NO,
+        SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+        SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+        STORE_NAME,
+        STATUS
+        FROM  CIRCULATION C
+        LEFT JOIN STORE S ON (C.STORE_NO = S.STORE_NO)
+        WHERE STATUS IN (1,5,6,7)
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS, STORE_NAME
+        ORDER BY SET_NO DESC
+    </select>
+
+    <select id="selectcirculation" resultType="_int">
+        SELECT
+        COUNT(*)
+        FROM (
+        SELECT
+        TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP
+        FROM CIRCULATION
+        WHERE STATUS IN (1,5,6,7)
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI')
+        )
+    </select>
+
+    <select id="getOderDetail" resultMap="circulationResult">
+        SELECT
+        P.PRODUCT_NO AS PRODUCT_NO,
+        Y.CATEGORY_NAME AS CATEGORY_NAME,
+        P.PRODUCT_NAME AS PRODUCT_NAME,
+        C.CIRCULATION_AMOUNT AS CIRCULATION_AMOUNT,
+        (C.CIRCULATION_AMOUNT * C.INPUT_PRICE) AS SUM_INPUT_PRICE
+        FROM CIRCULATION C
+        LEFT JOIN STORE S ON C.STORE_NO = S.STORE_NO
+        LEFT JOIN PRODUCT P ON C.PRODUCT_NO = P.PRODUCT_NO
+        LEFT JOIN CATEGORY Y ON P.CATEGORY_NO = Y.CATEGORY_NO
+        WHERE C.SET_NO = #{setNo} AND STATUS IN (1,5,6,7)
+    </select>
+
+    <select id="head_lastorder" resultMap="circulationResult">
+        SELECT
+        TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+        SET_NO,
+        SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+        SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+        STORE_NAME,
+        STATUS
+        FROM  CIRCULATION C
+        LEFT JOIN STORE S ON (C.STORE_NO = S.STORE_NO)
+        WHERE STATUS IN (1,5,6,7)
+        AND CIRCULATION_DATE BETWEEN #{start} AND #{end}
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS, STORE_NAME
+        ORDER BY SET_NO DESC
+    </select>
+
+    <select id="circulationSearchListCount" resultType="_int">
+        SELECT COUNT(*)
+            FROM (
+            SELECT
+            TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+            SET_NO,
+            STORE_NAME,
+            SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+            SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+            STATUS
+        FROM CIRCULATION C
+        LEFT JOIN STORE S ON (C.STORE_NO = S.STORE_NO)
+        WHERE STATUS IN (1,5,6,7)
+            <if test="startDate != null and endDate == null">
+                AND CIRCULATION_DATE &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and startDate == null">
+                AND CIRCULATION_DATE &lt;= #{endDate}
+            </if>
+            <if test="startDate != null and endDate != null">
+                AND CIRCULATION_DATE BETWEEN #{startDate} AND #{endDate}
+            </if>
+            <if test="setNo != null and setNo != ''">
+                AND SET_NO LIKE '%' || #{setNo} || '%'
+            </if>
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS, STORE_NAME
+        )
+    </select>
+
+    <select id="circulationSearchList" resultMap="circulationResult">
+        SELECT
+            TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI') AS MINUTE_GROUP,
+            SET_NO,
+            STORE_NAME,
+            SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+            SUM(CIRCULATION_AMOUNT * INPUT_PRICE) AS TOTAL_INPUT_PRICE,
+            STATUS
+        FROM CIRCULATION C
+        LEFT JOIN STORE S ON (C.STORE_NO = S.STORE_NO)
+        WHERE STATUS IN (1,5,6,7)
+            <if test="startDate != null and endDate == null">
+                AND CIRCULATION_DATE &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and startDate == null">
+                AND CIRCULATION_DATE &lt;= #{endDate}
+            </if>
+            <if test="startDate != null and endDate != null">
+                AND CIRCULATION_DATE BETWEEN #{startDate} AND #{endDate}
+            </if>
+            <if test="setNo != null and setNo != ''">
+                AND SET_NO LIKE '%' || #{setNo} || '%'
+            </if>
+        GROUP BY TO_CHAR(CIRCULATION_DATE, 'YYYY-MM-DD HH24:MI'), SET_NO, STATUS, STORE_NAME
+        ORDER BY SET_NO DESC
+    </select>
+
+    <!-- 매출 자료 (자동계산) -->
+    <select id="selectSalesMonth" resultMap="circulationSummaryResult">
+        SELECT
+        CIRCULATION_DATE,
+        SUM(INPUT_PRICE * CIRCULATION_AMOUNT) AS INPUT_PRICE,
+        SUM(SALE_PRICE * CIRCULATION_AMOUNT) AS SALE_PRICE,
+        SUM(CIRCULATION_AMOUNT) AS CIRCULATION_AMOUNT
+        FROM
+        CIRCULATION
+        WHERE
+        STORE_NO = #{storeNo}
+        AND CIRCULATION_DATE &gt;= #{startDate}
+        AND CIRCULATION_DATE &lt;= #{endDate}
+        GROUP BY
+        CIRCULATION_DATE
+        ORDER BY
+        CIRCULATION_DATE ASC
+    </select>
+    <!-- 상세 유통 내역 (모달용) -->
+    <select id="getDetailsByDate" resultMap="circulationResult">
+        SELECT
+        c.STORE_NO,
+        c.PRODUCT_NO,
+        P.INPUT_PRICE,
+        P.SALE_PRICE,
+        SUM(c.CIRCULATION_AMOUNT) AS CIRCULATION_AMOUNT,
+        TO_CHAR(c.CIRCULATION_DATE, 'YYYY-MM-DD') AS CIRCULATION_DATE,
+        c.STATUS,
+        s.STORE_NAME,
+        p.PRODUCT_NAME,
+        ca.CATEGORY_NAME
+        FROM CIRCULATION c
+        JOIN STORE s ON c.STORE_NO = s.STORE_NO
+        JOIN PRODUCT p ON c.PRODUCT_NO = p.PRODUCT_NO
+        JOIN CATEGORY ca ON p.CATEGORY_NO = ca.CATEGORY_NO
+        WHERE c.STORE_NO = #{storeNo}
+        AND TO_CHAR(c.CIRCULATION_DATE, 'YYYY-MM-DD') = #{date}
+        AND c.STATUS IN (2,3)
+        GROUP BY
+        c.STORE_NO,
+        c.PRODUCT_NO,
+        TO_CHAR(c.CIRCULATION_DATE, 'YYYY-MM-DD'),
+        c.STATUS,
+        s.STORE_NAME,
+        p.PRODUCT_NAME,
+        P.INPUT_PRICE,
+        P.SALE_PRICE,
+        ca.CATEGORY_NAME
+        ORDER BY c.STATUS, c.PRODUCT_NO
+
+
+    </select>
+
+    <!-- 매출집게 - 년도-->
+<!--    <select id="getDetailsByYear" resultMap="monthlySalesResultMap">-->
+<!--        SELECT-->
+<!--        TO_CHAR(CIRCULATION_DATE, 'MM') AS MONTH,-->
+<!--        SUM(INPUT_PRICE * CIRCULATION_AMOUNT) AS TOTAL_INPUT,-->
+<!--        SUM(SALE_PRICE * CIRCULATION_AMOUNT) AS TOTAL_SALE,-->
+<!--        SUM((SALE_PRICE - INPUT_PRICE) * CIRCULATION_AMOUNT) AS TOTAL_MARGIN-->
+<!--        FROM-->
+<!--        CIRCULATION-->
+<!--        WHERE-->
+<!--        TO_CHAR(CIRCULATION_DATE, 'YYYY') = #{year} &#45;&#45; 예: '2025'-->
+<!--        AND STORE_NO = #{storeNo}-->
+<!--        GROUP BY-->
+<!--        TO_CHAR(CIRCULATION_DATE, 'MM')-->
+<!--        ORDER BY-->
+<!--        MONTH ASC-->
+<!--    </select>-->
+
+    <!--test-->
+        <select id="getDetailsByYear" resultMap="monthlySalesResultMap">
+            SELECT
+            TO_CHAR(CIRCULATION_DATE, 'MM') AS MONTH,
+
+            SUM(
+            CASE
+            WHEN STATUS = 2 THEN INPUT_PRICE * CIRCULATION_AMOUNT
+            ELSE 0
+            END
+            ) AS TOTAL_INPUT,
+
+            SUM(
+            CASE
+            WHEN STATUS = 3 THEN SALE_PRICE * CIRCULATION_AMOUNT
+            ELSE 0
+            END
+            ) AS TOTAL_SALE
+
+            FROM CIRCULATION
+
+            WHERE
+            TO_CHAR(CIRCULATION_DATE, 'YYYY') = #{year}
+            AND STORE_NO = #{storeNo}
+            AND STATUS IN (2, 3)
+
+            GROUP BY
+            TO_CHAR(CIRCULATION_DATE, 'MM')
+
+            ORDER BY
+            MONTH ASC
+        </select>
+
+
+    <!--test-->
+
+    <!-- 매출집계 출력(페이징)-->
+    <!-- 페이징을 위한 카운트 쿼리 -->
+    <select id="countSalesByMonth" resultType="int">
+        SELECT COUNT(*) FROM (
+        SELECT TRUNC(CIRCULATION_DATE)
+        FROM CIRCULATION
+        WHERE STORE_NO = #{storeNo}
+        AND CIRCULATION_DATE &gt;= #{startDate}
+        AND CIRCULATION_DATE &lt; #{endDate}
+        GROUP BY TRUNC(CIRCULATION_DATE)
+        )
+    </select>
+
+
+    <!-- 페이징을 위한 매출 조회 쿼리 -->
+    <select id="selectSalesMonthWithPaging" resultMap="circulationSummaryResult">
+        SELECT
+        TRUNC(CIRCULATION_DATE) AS CIRCULATION_DATE,
+        SUM(
+        CASE
+        WHEN STATUS = 2 THEN (INPUT_PRICE * CIRCULATION_AMOUNT)
+        ELSE 0
+        END
+        ) AS INPUT_PRICE,
+        SUM(
+        CASE
+        WHEN STATUS = 3 THEN (SALE_PRICE * CIRCULATION_AMOUNT)
+        ELSE 0
+        END
+        ) AS SALE_PRICE,
+        SUM(CIRCULATION_AMOUNT) AS CIRCULATION_AMOUNT
+        FROM CIRCULATION
+        WHERE STORE_NO = #{storeNo}
+        AND TRUNC(CIRCULATION_DATE) &gt;= TRUNC(#{startDate})
+        AND TRUNC(CIRCULATION_DATE) &lt;= TRUNC(#{endDate})
+        GROUP BY TRUNC(CIRCULATION_DATE)
+        ORDER BY TRUNC(CIRCULATION_DATE) ASC
+        OFFSET #{offset} ROWS FETCH NEXT #{limit} ROWS ONLY
+    </select>
+
+
+
+
+    <!--본사 승인 미승인-->
+    <update id="updateheadorder">
+        UPDATE CIRCULATION
+        SET STATUS = #{status}
+        WHERE SET_NO = #{setNo}
+    </update>
+
+    <insert id="insertExpiry">
+        INSERT INTO CIRCULATION (
+        CIRCULATION_NO,
+        STORE_NO,
+        PRODUCT_NO,
+        INPUT_PRICE,
+        SALE_PRICE,
+        CIRCULATION_AMOUNT,
+        CIRCULATION_DATE,
+        STATUS
+        )
+        SELECT
+        SEQ_CIRNO.NEXTVAL,
+        #{storeNo},
+        #{productNo},
+        INPUT_PRICE,
+        SALE_PRICE,
+        #{inventoryCount},
+        SYSDATE,
+        4
+        FROM PRODUCT
+        WHERE PRODUCT_NO = #{productNo}
+    </insert>
+
+    <insert id="posCirculationInsert" >
+        INSERT INTO CIRCULATION (
+        CIRCULATION_NO,
+        STORE_NO,
+        SET_NO,
+        PRODUCT_NO,
+        INPUT_PRICE,
+        SALE_PRICE,
+        CIRCULATION_AMOUNT,
+        CIRCULATION_DATE,
+        STATUS
+        ) VALUES (
+        SEQ_CIRNO.NEXTVAL,
+        #{storeNo},
+        #{setNo},
+        #{productNo},
+        #{inputPrice},
+        #{salePrice},
+        #{circulationAmount},
+        SYSDATE,
+        3
+        )
+    </insert>
+
+    <select id="saleMonthSelect" resultMap="circulationResult">
+        SELECT
+        c.CIRCULATION_NO,
+        c.STORE_NO,
+        c.PRODUCT_NO,
+        c.INPUT_PRICE,
+        c.SALE_PRICE,
+        c.CIRCULATION_AMOUNT,
+        TO_CHAR(c.CIRCULATION_DATE, 'YYYY-MM-DD') AS CIRCULATION_DATE,
+        c.STATUS,
+        s.STORE_NAME,
+        p.PRODUCT_NAME,
+        ca.CATEGORY_NAME
+        FROM CIRCULATION c
+        JOIN STORE s ON c.STORE_NO = s.STORE_NO
+        JOIN PRODUCT p ON c.PRODUCT_NO = p.PRODUCT_NO
+        JOIN CATEGORY ca ON p.CATEGORY_NO = ca.CATEGORY_NO
+        WHERE c.STORE_NO = #{storeNo}
+        AND TO_CHAR(c.CIRCULATION_DATE, 'YYYY-MM-DD') = #{date}
+        AND
+    </select>
+    <select id="selectOutputCount">
+        SELECT COUNT(*) FROM CIRCULATION
+        WHERE STATUS IN (3, 4)
+        AND STORE_NO =#{storeNo}
+    </select>
+    <select id="selectOutputList" resultMap="circulationResult">
+        SELECT
+        CI.CIRCULATION_DATE,
+        CI.PRODUCT_NO,
+        C.CATEGORY_NAME,
+        P.PRODUCT_NAME,
+        CI.CIRCULATION_AMOUNT,
+        TO_CHAR(CI.SALE_PRICE * CI.CIRCULATION_AMOUNT,'999,999,999') AS PRICE,
+        CI.STATUS
+        FROM CIRCULATION CI
+        JOIN PRODUCT P ON CI.PRODUCT_NO = P.PRODUCT_NO
+        JOIN CATEGORY C ON P.CATEGORY_NO = C.CATEGORY_NO
+        WHERE CI.STORE_NO = #{storeNo}
+        AND CI.STATUS IN (3, 4)
+        ORDER BY CI.CIRCULATION_DATE DESC
+    </select>
+    <select id="searchOutputCount" resultType="int">
+        SELECT COUNT(*)
+        FROM CIRCULATION CI
+        JOIN PRODUCT P ON CI.PRODUCT_NO = P.PRODUCT_NO
+        JOIN CATEGORY C ON P.CATEGORY_NO = C.CATEGORY_NO
+        WHERE STORE_NO =#{storeNo}
+        <choose>
+            <when test="status == 0 ">
+                AND CI.STATUS IN (3, 4)
+            </when>
+            <when test="status == 3 ">
+                AND CI.STATUS = 3
+            </when>
+            <otherwise>
+                AND CI.STATUS = 4
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="searchOutput == 'productNo'">
+                AND P.PRODUCT_NO LIKE '%'|| #{keyword} ||'%'
+            </when>
+            <when test="searchOutput == 'productName'">
+                AND P.PRODUCT_NAME LIKE '%'|| #{keyword} ||'%'
+            </when>
+            <otherwise>
+            AND C.CATEGORY_NAME LIKE '%'|| #{keyword} ||'%'
+            </otherwise>
+        </choose>
+        <if test="since !=null and since !=''">
+            AND CI.CIRCULATION_DATE &gt;= #{since}
+        </if>
+        <if test="until !=null and until !=''">
+            AND CI.CIRCULATION_DATE &lt;= #{until}
+        </if>
+
+    </select>
+    <select id="searchOutputList" resultMap="circulationResult">
+        SELECT
+        CI.CIRCULATION_DATE,
+        CI.PRODUCT_NO,
+        C.CATEGORY_NAME,
+        P.PRODUCT_NAME,
+        CI.CIRCULATION_AMOUNT,
+        TO_CHAR(CI.SALE_PRICE * CI.CIRCULATION_AMOUNT,'999,999,999') AS PRICE,
+        CI.STATUS
+        FROM CIRCULATION CI
+        JOIN PRODUCT P ON CI.PRODUCT_NO = P.PRODUCT_NO
+        JOIN CATEGORY C ON P.CATEGORY_NO = C.CATEGORY_NO
+        WHERE CI.STORE_NO = #{storeNo}
+        <choose>
+            <when test="status == 0">
+                AND CI.STATUS IN (3, 4)
+            </when>
+            <when test="status == 3 ">
+                AND CI.STATUS = 3
+            </when>
+            <otherwise>
+                AND CI.STATUS = 4
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="searchOutput == 'productNo'">
+                AND CI.PRODUCT_NO LIKE '%'|| #{keyword} ||'%'
+            </when>
+            <when test="searchOutput == 'productName'">
+                AND P.PRODUCT_NAME LIKE '%'|| #{keyword} ||'%'
+            </when>
+            <otherwise>
+                AND C.CATEGORY_NAME LIKE '%'|| #{keyword} ||'%'
+            </otherwise>
+        </choose>
+        <if test="since != null and since !=''">
+            AND CI.CIRCULATION_DATE &gt;= #{since}
+        </if>
+        <if test="until != null and until !=''">
+            AND CI.CIRCULATION_DATE &lt;= #{until}
+        </if>
+        ORDER BY CI.CIRCULATION_DATE DESC
+    </select>
+
+    <select id="spotSalesBestList" resultMap="circulationResult">
+        SELECT
+            PRODUCT_NO,
+            PRODUCT_NAME,
+            TOTAL_AMOUNT,
+            ROWNUM
+        FROM(
+            SELECT
+                PRODUCT_NO,
+                PRODUCT_NAME,
+                SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT
+            FROM CIRCULATION
+            JOIN PRODUCT USING(PRODUCT_NO)
+            WHERE STATUS = 3
+                AND CIRCULATION_DATE BETWEEN #{startDate} AND #{endDate}
+            GROUP BY PRODUCT_NO, PRODUCT_NAME
+            ORDER BY TOTAL_AMOUNT DESC)
+        WHERE ROWNUM &lt;= 3
+    </select>
+
+    <select id="spotSalesWorstList" resultMap="circulationResult">
+        SELECT
+            PRODUCT_NO,
+            PRODUCT_NAME,
+            TOTAL_AMOUNT,
+            ROWNUM
+        FROM(
+            SELECT
+                PRODUCT_NO,
+                PRODUCT_NAME,
+                SUM(CIRCULATION_AMOUNT) AS TOTAL_AMOUNT
+            FROM CIRCULATION
+            JOIN PRODUCT USING(PRODUCT_NO)
+            WHERE STATUS = 3
+                AND CIRCULATION_DATE BETWEEN #{startDate} AND #{endDate}
+            GROUP BY PRODUCT_NO, PRODUCT_NAME
+            ORDER BY TOTAL_AMOUNT ASC)
+        WHERE ROWNUM &lt;= 3
+    </select>
+
+    <select id="selectdashCirculationDispose" resultMap="circulationResult">
+        SELECT
+        P.PRODUCT_NAME,
+        P.INPUT_PRICE,
+        SUM(CI.CIRCULATION_AMOUNT) AS TOTAL_AMOUNT,
+        SUM(CI.CIRCULATION_AMOUNT * P.INPUT_PRICE) AS TOTAL_INPUT_PRICE
+        FROM
+        CIRCULATION CI
+        JOIN
+        PRODUCT P ON (CI.PRODUCT_NO = P.PRODUCT_NO)
+        WHERE
+        TRUNC(CI.CIRCULATION_DATE) = TRUNC(SYSDATE)
+        AND CI.STORE_NO = #{storeNo}
+        AND CI.STATUS = 4
+        GROUP BY
+        P.PRODUCT_NAME, P.INPUT_PRICE
+    </select>
+</mapper>

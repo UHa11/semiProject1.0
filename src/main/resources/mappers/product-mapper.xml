@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kh.project.cse.boot.mappers.ProductMapper">
+    <resultMap id="headProductResult" type="Product">
+    <result column="PRODUCT_NO" property="productNo"/>
+    <result column="CATEGORY_NO" property="categoryNo"/>
+    <result column="PRODUCT_NAME" property="productName"/>
+    <result column="ORIGIN_NAME" property="originName"/>
+    <result column="CHANGE_NAME" property="changeName"/>
+    <result column="FILE_PATH" property="filePath"/>
+    <result column="INPUT_PRICE" property="inputPrice"/>
+    <result column="SALE_PRICE" property="salePrice"/>
+    <result column="SHORTAGE_AMOUNT" property="shortageAmount"/>
+    <result column="AVAILABILITY" property="availability"/>
+    <result column="PRODUCT_STATUS" property="status"/>
+    <result column="CATEGORY_NAME" property="categoryName"/>
+    <result column="COUNT" property="count"/>
+
+    </resultMap>
+    <resultMap id="categoryResult" type="Category">
+        <result column="CATEGORY_NO" property="categoryNo"/>
+        <result column="CATEGORY_NAME" property="categoryName"/>
+        <result column="EXPIRATION_DATE" property="expirationDate"/>
+    </resultMap>
+
+
+    <insert id="insertProduct" parameterType="Product" useGeneratedKeys="false" >
+        INSERT INTO PRODUCT(
+        PRODUCT_NO,
+        CATEGORY_NO,
+        PRODUCT_NAME,
+        ORIGIN_NAME,
+        CHANGE_NAME,
+        FILE_PATH,
+        INPUT_PRICE,
+        SALE_PRICE,
+        SHORTAGE_AMOUNT,
+        PRODUCT_STATUS
+        ) VALUES (
+        SEQ_PRNO.NEXTVAL,
+        #{categoryNo},
+        #{productName},
+        #{originName},
+        #{changeName},
+        #{filePath},
+        #{inputPrice},
+        #{salePrice},
+        #{shortageAmount},
+        0
+        )
+        <selectKey keyProperty="productNo"  resultType="int"  order ="AFTER">
+            SELECT SEQ_PRNO.currval From dual
+        </selectKey>
+    </insert>
+
+
+    <select id="selectAllProduct" resultMap="headProductResult">
+        SELECT
+        DISTINCT P.PRODUCT_NO,
+        CATEGORY_NAME,
+        PRODUCT_NAME,
+        INPUT_PRICE,
+        SALE_PRICE,
+        SHORTAGE_AMOUNT,
+        AVAILABILITY,
+        FILE_PATH
+        FROM PRODUCT P
+        JOIN CATEGORY C ON(C.CATEGORY_NO = P.CATEGORY_NO)
+        WHERE PRODUCT_STATUS = 0
+        ORDER BY P.PRODUCT_NO DESC
+
+    </select>
+
+    <select id="searchProduct" resultMap="headProductResult">
+        SELECT
+        P.PRODUCT_NO,
+        C.CATEGORY_Name,
+        PRODUCT_NAME,
+        INPUT_PRICE,
+        SALE_PRICE,
+        SHORTAGE_AMOUNT,
+        AVAILABILITY,
+        FILE_PATH
+        FROM PRODUCT P
+        JOIN CATEGORY C ON(C.CATEGORY_NO = P.CATEGORY_NO)
+        WHERE
+        <choose>
+            <when test="condition == 'productNo'">
+                P.PRODUCT_NO
+            </when>
+            <when test="condition == 'productName'">
+                PRODUCT_NAME
+            </when>
+            <otherwise>
+                C.CATEGORY_NAME
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        AND PRODUCT_STATUS = 0
+        ORDER BY PRODUCT_NO DESC
+    </select>
+
+    <select id="selectAllCategories" resultMap="categoryResult">
+        SELECT
+        CATEGORY_NO,
+        CATEGORY_NAME,
+        EXPIRATION_DATE
+        FROM CATEGORY
+    </select>
+
+    <select id="ProductListCount" resultType="_int">
+        SELECT COUNT(*) AS COUNT
+        FROM PRODUCT
+        WHERE PRODUCT_STATUS = 0
+    </select>
+
+    <select id="searchProductCount" resultType="_int">
+        SELECT COUNT(*) AS COUNT
+        FROM PRODUCT P
+        JOIN CATEGORY C ON(C.CATEGORY_NO = P.CATEGORY_NO)
+        WHERE
+        <choose>
+            <when test="condition == 'productNo'">
+                P.PRODUCT_NO
+            </when>
+            <when test="condition == 'productName'">
+                PRODUCT_NAME
+            </when>
+            <otherwise>
+                C.CATEGORY_NAME
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        AND PRODUCT_STATUS = 0
+    </select>
+
+    <update id="updateProduct" >
+        UPDATE PRODUCT
+        SET
+        CATEGORY_NO = #{categoryNo},
+        PRODUCT_NAME= #{productName},
+        ORIGIN_NAME =  #{originName},
+        CHANGE_NAME = #{changeName},
+        FILE_PATH = #{filePath},
+        INPUT_PRICE = #{inputPrice},
+        SALE_PRICE = #{salePrice},
+        AVAILABILITY = #{availability},
+        SHORTAGE_AMOUNT =#{shortageAmount},
+        PRODUCT_STATUS = #{status}
+        WHERE PRODUCT_NO = #{productNo}
+    </update>
+    <update id="updateOnlyProduct" >
+        UPDATE PRODUCT
+        SET
+        CATEGORY_NO = #{categoryNo},
+        PRODUCT_NAME= #{productName},
+        INPUT_PRICE = #{inputPrice},
+        SALE_PRICE = #{salePrice},
+        AVAILABILITY = #{availability},
+        SHORTAGE_AMOUNT = #{shortageAmount},
+        PRODUCT_STATUS = #{status}
+        WHERE PRODUCT_NO = #{productNo}
+    </update>
+
+    <update id="deleteUpdateProduct" >
+        UPDATE PRODUCT
+        SET
+        PRODUCT_STATUS = #{status}
+        WHERE PRODUCT_NO = #{productNo}
+    </update>
+
+
+    <select id="OneProductSelect" resultMap="headProductResult">
+        SELECT
+        P.PRODUCT_NO,
+        C.CATEGORY_Name,
+        PRODUCT_NAME,
+        INPUT_PRICE,
+        SALE_PRICE,
+        SHORTAGE_AMOUNT,
+        AVAILABILITY,
+        FILE_PATH
+        FROM PRODUCT P
+        JOIN CATEGORY C ON(C.CATEGORY_NO = P.CATEGORY_NO)
+        WHERE P.PRODUCT_NO = #{productNo}
+        AND PRODUCT_STATUS = 0
+        ORDER BY P.PRODUCT_NO DESC
+    </select>
+
+    <!--  지점  -->
+    <select id="orderRequestProductList" resultMap="headProductResult">
+        SELECT
+        PRODUCT_NO,
+        CATEGORY_Name,
+        PRODUCT_NAME,
+        INPUT_PRICE,
+        SALE_PRICE,
+        SHORTAGE_AMOUNT
+        FROM PRODUCT
+        JOIN CATEGORY USING(CATEGORY_NO)
+        WHERE AVAILABILITY = 'Y' AND PRODUCT_STATUS = 0
+        ORDER BY PRODUCT_NO ASC
+
+    </select>
+    <select id="orderRequestProductSearch" resultMap="headProductResult">
+        SELECT
+        PRODUCT_NO,
+        CATEGORY_NAME,
+        PRODUCT_NAME,
+        INPUT_PRICE,
+        SALE_PRICE,
+        SHORTAGE_AMOUNT
+        FROM PRODUCT
+        JOIN CATEGORY USING(CATEGORY_NO)
+        WHERE (PRODUCT_NAME LIKE '%' || #{keyword} || '%'
+        OR TO_CHAR(PRODUCT_NO) LIKE '%' || #{keyword} || '%')
+        <if test="category != null and category != 'all'">
+            AND CATEGORY_NAME = #{category}
+        </if>
+        AND PRODUCT_STATUS = 0
+        ORDER BY PRODUCT_NO ASC
+    </select>
+
+
+
+    <select id="spotSearchProduct" resultMap="headProductResult" >
+        SELECT
+        P.PRODUCT_NO,
+        C.CATEGORY_Name,
+        PRODUCT_NAME,
+        INPUT_PRICE,
+        SALE_PRICE,
+        SHORTAGE_AMOUNT,
+        AVAILABILITY,
+        FILE_PATH
+        FROM PRODUCT P
+        JOIN CATEGORY C ON(C.CATEGORY_NO = P.CATEGORY_NO)
+        WHERE
+        <choose>
+            <when test="condition == 'productNo'">
+                P.PRODUCT_NO
+            </when>
+            <when test="condition == 'productName'">
+                PRODUCT_NAME
+            </when>
+            <otherwise>
+                C.CATEGORY_NAME
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        and AVAILABILITY = #{inputcheck}
+        AND PRODUCT_STATUS = 0
+        ORDER BY PRODUCT_NO DESC
+    </select>
+
+    <select id="spotSearchProductCount" resultType="_int" >
+        SELECT
+        Count(*) AS COUNT
+        FROM PRODUCT P
+        JOIN CATEGORY C ON(C.CATEGORY_NO = P.CATEGORY_NO)
+        WHERE
+        <choose>
+            <when test="condition == 'productNo'">
+                P.PRODUCT_NO
+            </when>
+            <when test="condition == 'productName'">
+                PRODUCT_NAME
+            </when>
+            <otherwise>
+                C.CATEGORY_NAME
+            </otherwise>
+        </choose>
+        LIKE '%${keyword}%'
+        and AVAILABILITY = #{inputcheck}
+        AND PRODUCT_STATUS = 0
+    </select>
+
+
+    <select id="posOneProductSelect" resultMap="headProductResult" >
+        SELECT
+        PRODUCT_NO,
+        CATEGORY_NO,
+        PRODUCT_NAME,
+        INPUT_PRICE,
+        SALE_PRICE,
+        SHORTAGE_AMOUNT
+        FROM PRODUCT
+        WHERE  PRODUCT_NO = #{productNo}
+        AND PRODUCT_STATUS = 0
+    </select>
+
+</mapper>
